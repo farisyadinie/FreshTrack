@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from datetime import date, timedelta
 
@@ -23,13 +24,22 @@ CORS(
 # on the browser session cookie.
 api_user_id = None
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASE_DIR = os.path.join(BASE_DIR, "database")
+
+os.makedirs(DATABASE_DIR, exist_ok=True)
+
+DATABASE_PATH = os.path.join(DATABASE_DIR, "freshtrack.db")
+
+
+
 
 # =====================================================
 # DATABASE
 # =====================================================
 
 def db():
-    return sqlite3.connect("database/freshtrack.db", timeout=10)
+    return sqlite3.connect(DATABASE_PATH, timeout=10)
 
 
 def ensure_food_impact_column():
