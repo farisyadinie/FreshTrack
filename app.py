@@ -15,6 +15,7 @@ CORS(
     supports_credentials=True
 )
 
+
 # =====================================================
 # LOCAL FLUTTER USER
 # =====================================================
@@ -24,35 +25,98 @@ CORS(
 # on the browser session cookie.
 api_user_id = None
 
+
+# =====================================================
+# DATABASE PATH
+# =====================================================
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_DIR = os.path.join(BASE_DIR, "database")
 
 os.makedirs(DATABASE_DIR, exist_ok=True)
 
-DATABASE_PATH = os.path.join(DATABASE_DIR, "freshtrack.db")
-
-
+DATABASE_PATH = os.path.join(
+    DATABASE_DIR,
+    "freshtrack.db"
+)
 
 
 # =====================================================
-# DATABASE
+# DATABASE CONNECTION
 # =====================================================
 
 def db():
-    return sqlite3.connect(DATABASE_PATH, timeout=10)
+    return sqlite3.connect(
+        DATABASE_PATH,
+        timeout=10
+    )
 
 
-def ensure_food_impact_column():
+# =====================================================
+# INITIALIZE DATABASE
+# =====================================================
+
+def initialize_database():
+
     connection = db()
     cursor = connection.cursor()
 
-    cursor.execute("PRAGMA table_info(foods)")
+    # USERS TABLE
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+    """)
+
+    # FOODS TABLE
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS foods (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            food TEXT NOT NULL,
+            category TEXT NOT NULL,
+            quantity INTEGER NOT NULL,
+            unit TEXT NOT NULL,
+            expiry TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active',
+            used_before_expiry INTEGER DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+
+    connection.commit()
+    connection.close()
+
+
+# Create tables before the rest of the app starts
+initialize_database()
+
+
+# =====================================================
+# FOOD IMPACT COLUMN
+# =====================================================
+
+def ensure_food_impact_column():
+
+    connection = db()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "PRAGMA table_info(foods)"
+    )
+
     columns = {
         row[1]
         for row in cursor.fetchall()
     }
 
     if "used_before_expiry" not in columns:
+
         cursor.execute("""
             ALTER TABLE foods
             ADD COLUMN used_before_expiry INTEGER DEFAULT 0
@@ -63,8 +127,10 @@ def ensure_food_impact_column():
             UPDATE foods
             SET used_before_expiry = 1
             WHERE status = 'used'
-              AND (used_before_expiry IS NULL
-                   OR used_before_expiry = 0)
+              AND (
+                  used_before_expiry IS NULL
+                  OR used_before_expiry = 0
+              )
         """)
 
     connection.commit()
@@ -80,7 +146,10 @@ ensure_food_impact_column()
 
 @app.route("/")
 def home():
-    return render_template("index.html")
+
+    return render_template(
+        "index.html"
+    )
 
 
 # =====================================================
@@ -103,7 +172,10 @@ def login():
             FROM users
             WHERE email = ?
             AND password = ?
-        """, (email, password))
+        """, (
+            email,
+            password
+        ))
 
         user = cursor.fetchone()
 
@@ -120,7 +192,9 @@ def login():
             error="Invalid email or password"
         )
 
-    return render_template("login.html")
+    return render_template(
+        "login.html"
+    )
 
 
 # =====================================================
@@ -163,7 +237,9 @@ def register():
 
         return redirect("/dashboard")
 
-    return render_template("register.html")
+    return render_template(
+        "register.html"
+    )
 
 
 # =====================================================
@@ -179,7 +255,6 @@ def dashboard():
     user_id = session["user_id"]
 
     today = date.today()
-
     today_string = today.isoformat()
 
     three_days_string = (
@@ -207,7 +282,6 @@ def dashboard():
 
         return redirect("/login")
 
-
     # TOTAL FOODS
 
     cursor.execute("""
@@ -218,7 +292,6 @@ def dashboard():
     """, (user_id,))
 
     total_foods = cursor.fetchone()[0]
-
 
     # EXPIRING SOON
 
@@ -236,7 +309,6 @@ def dashboard():
 
     expiring_soon = cursor.fetchone()[0]
 
-
     # EXPIRED
 
     cursor.execute("""
@@ -251,7 +323,6 @@ def dashboard():
     ))
 
     expired = cursor.fetchone()[0]
-
 
     # LOW STOCK
 
@@ -268,7 +339,6 @@ def dashboard():
     ))
 
     low_stock = cursor.fetchone()[0]
-
 
     # PANTRY
 
@@ -318,7 +388,6 @@ def dashboard():
             status_label = "Good"
             status_class = "good"
 
-
         if days_until_expiry < 0:
 
             days_ago = abs(days_until_expiry)
@@ -347,7 +416,6 @@ def dashboard():
                 f"Expires in {days_until_expiry} days"
             )
 
-
         pantry_foods.append({
             "name": food_name,
             "category": category,
@@ -358,7 +426,6 @@ def dashboard():
             "status_class": status_class,
             "expiry_message": expiry_message
         })
-
 
     # EXPIRING FOOD
 
@@ -377,7 +444,6 @@ def dashboard():
 
     expiring_foods = cursor.fetchall()
 
-
     # LOW STOCK FOOD
 
     cursor.execute("""
@@ -395,7 +461,6 @@ def dashboard():
 
     low_stock_foods = cursor.fetchall()
 
-
     # CATEGORY BREAKDOWN
 
     cursor.execute("""
@@ -408,7 +473,6 @@ def dashboard():
     """, (user_id,))
 
     category_breakdown = cursor.fetchall()
-
 
     # USED FOODS
 
@@ -429,7 +493,6 @@ def dashboard():
 
     used_foods = cursor.fetchone()[0]
 
-
     # IMPACT
 
     tracked_foods = used_foods + expired
@@ -444,7 +507,6 @@ def dashboard():
 
         waste_avoidance = None
 
-
     # HEALTH
 
     health_score = (
@@ -458,7 +520,6 @@ def dashboard():
         0,
         min(100, health_score)
     )
-
 
     if health_score >= 80:
 
@@ -478,9 +539,7 @@ def dashboard():
             "🔴 Your pantry needs attention."
         )
 
-
     connection.close()
-
 
     return render_template(
         "dashboard.html",
@@ -513,7 +572,6 @@ def inventory():
     user_id = session["user_id"]
 
     today = date.today()
-
     today_string = today.isoformat()
 
     expiring_limit_date = (
@@ -522,7 +580,6 @@ def inventory():
 
     connection = db()
     cursor = connection.cursor()
-
 
     if request.method == "POST":
 
@@ -541,17 +598,14 @@ def inventory():
 
             return "Invalid quantity", 400
 
-
         if quantity <= 0:
 
             connection.close()
 
             return "Quantity must be greater than 0", 400
 
-
         unit = request.form["unit"]
         expiry = request.form["expiry"]
-
 
         cursor.execute("""
             INSERT INTO foods
@@ -575,17 +629,14 @@ def inventory():
         ))
 
         connection.commit()
-
         connection.close()
 
         return redirect("/inventory")
-
 
     filter_type = request.args.get(
         "filter",
         "all"
     )
-
 
     if filter_type == "expiring":
 
@@ -604,7 +655,6 @@ def inventory():
 
         filter_title = "⏰ Expiring Soon"
 
-
     elif filter_type == "expired":
 
         cursor.execute("""
@@ -620,7 +670,6 @@ def inventory():
         ))
 
         filter_title = "🔴 Expired Foods"
-
 
     elif filter_type == "low-stock":
 
@@ -639,7 +688,6 @@ def inventory():
 
         filter_title = "🟡 Low Stock"
 
-
     else:
 
         cursor.execute("""
@@ -652,11 +700,9 @@ def inventory():
 
         filter_title = "🥕 Your Pantry"
 
-
     foods = cursor.fetchall()
 
     connection.close()
-
 
     return render_template(
         "inventory.html",
@@ -683,7 +729,6 @@ def edit(id):
     connection = db()
     cursor = connection.cursor()
 
-
     if request.method == "POST":
 
         food = request.form["food"]
@@ -701,17 +746,14 @@ def edit(id):
 
             return "Invalid quantity", 400
 
-
         if quantity <= 0:
 
             connection.close()
 
             return "Quantity must be greater than 0", 400
 
-
         unit = request.form["unit"]
         expiry = request.form["expiry"]
-
 
         cursor.execute("""
             UPDATE foods
@@ -733,11 +775,9 @@ def edit(id):
         ))
 
         connection.commit()
-
         connection.close()
 
         return redirect("/inventory")
-
 
     cursor.execute("""
         SELECT *
@@ -753,7 +793,6 @@ def edit(id):
     food = cursor.fetchone()
 
     connection.close()
-
 
     return render_template(
         "edit.html",
@@ -778,16 +817,20 @@ def used(id):
 
     cursor.execute("""
         UPDATE foods
-        SET status = 'used'
+        SET status = 'used',
+            used_before_expiry = CASE
+                WHEN expiry >= ? THEN 1
+                ELSE 0
+            END
         WHERE id = ?
         AND user_id = ?
     """, (
+        date.today().isoformat(),
         id,
         user_id
     ))
 
     connection.commit()
-
     connection.close()
 
     return redirect("/inventory")
@@ -818,7 +861,6 @@ def delete(id):
     ))
 
     connection.commit()
-
     connection.close()
 
     return redirect("/inventory")
@@ -833,7 +875,9 @@ def api_login():
 
     global api_user_id
 
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(
+        silent=True
+    ) or {}
 
     email = data.get("email")
     password = data.get("password")
@@ -843,7 +887,6 @@ def api_login():
         return jsonify({
             "error": "Email and password are required"
         }), 400
-
 
     connection = db()
     cursor = connection.cursor()
@@ -862,22 +905,15 @@ def api_login():
 
     connection.close()
 
-
     if not user:
 
         return jsonify({
             "error": "Invalid email or password"
         }), 401
 
-
-    # SAVE USER FOR FLUTTER API
-
     api_user_id = user[0]
 
-    # ALSO SAVE NORMAL FLASK SESSION
-
     session["user_id"] = user[0]
-
 
     return jsonify({
         "success": True,
@@ -896,14 +932,16 @@ def api_dashboard():
 
     global api_user_id
 
-    user_id = session.get("user_id") or api_user_id
+    user_id = (
+        session.get("user_id")
+        or api_user_id
+    )
 
     if user_id is None:
 
         return jsonify({
             "error": "Not logged in"
         }), 401
-
 
     today = date.today()
 
@@ -913,10 +951,8 @@ def api_dashboard():
         today + timedelta(days=3)
     ).isoformat()
 
-
     connection = db()
     cursor = connection.cursor()
-
 
     cursor.execute("""
         SELECT name
@@ -926,7 +962,6 @@ def api_dashboard():
 
     user = cursor.fetchone()
 
-
     if not user:
 
         connection.close()
@@ -934,7 +969,6 @@ def api_dashboard():
         return jsonify({
             "error": "User not found"
         }), 401
-
 
     # TOTAL FOODS
 
@@ -946,7 +980,6 @@ def api_dashboard():
     """, (user_id,))
 
     total_foods = cursor.fetchone()[0]
-
 
     # EXPIRING
 
@@ -964,7 +997,6 @@ def api_dashboard():
 
     expiring_soon = cursor.fetchone()[0]
 
-
     # EXPIRED
 
     cursor.execute("""
@@ -979,7 +1011,6 @@ def api_dashboard():
     ))
 
     expired = cursor.fetchone()[0]
-
 
     # LOW STOCK
 
@@ -997,7 +1028,6 @@ def api_dashboard():
 
     low_stock = cursor.fetchone()[0]
 
-
     # USED
 
     cursor.execute("""
@@ -1009,9 +1039,7 @@ def api_dashboard():
 
     used_foods = cursor.fetchone()[0]
 
-
     tracked_foods = used_foods + expired
-
 
     if tracked_foods > 0:
 
@@ -1023,9 +1051,7 @@ def api_dashboard():
 
         waste_avoidance = 0
 
-
     connection.close()
-
 
     return jsonify({
         "name": user[0],
@@ -1047,14 +1073,16 @@ def api_foods():
 
     global api_user_id
 
-    user_id = session.get("user_id") or api_user_id
+    user_id = (
+        session.get("user_id")
+        or api_user_id
+    )
 
     if user_id is None:
 
         return jsonify({
             "error": "Not logged in"
         }), 401
-
 
     connection = db()
     cursor = connection.cursor()
@@ -1071,7 +1099,6 @@ def api_foods():
 
     connection.close()
 
-
     foods = []
 
     for row in rows:
@@ -1084,7 +1111,6 @@ def api_foods():
             "unit": row[4],
             "expiry": row[5]
         })
-
 
     return jsonify({
         "foods": foods
@@ -1100,7 +1126,10 @@ def api_add_food():
 
     global api_user_id
 
-    user_id = session.get("user_id") or api_user_id
+    user_id = (
+        session.get("user_id")
+        or api_user_id
+    )
 
     if user_id is None:
 
@@ -1108,15 +1137,15 @@ def api_add_food():
             "error": "Not logged in"
         }), 401
 
-
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(
+        silent=True
+    ) or {}
 
     food = data.get("food")
     category = data.get("category")
     quantity = data.get("quantity")
     unit = data.get("unit")
     expiry = data.get("expiry")
-
 
     if (
         not food
@@ -1130,7 +1159,6 @@ def api_add_food():
             "error": "Missing required fields"
         }), 400
 
-
     try:
 
         quantity = float(quantity)
@@ -1141,17 +1169,14 @@ def api_add_food():
             "error": "Invalid quantity"
         }), 400
 
-
     if quantity <= 0:
 
         return jsonify({
             "error": "Quantity must be greater than 0"
         }), 400
 
-
     connection = db()
     cursor = connection.cursor()
-
 
     cursor.execute("""
         INSERT INTO foods
@@ -1174,13 +1199,11 @@ def api_add_food():
         expiry
     ))
 
-
     connection.commit()
 
     food_id = cursor.lastrowid
 
     connection.close()
-
 
     return jsonify({
         "success": True,
@@ -1197,7 +1220,10 @@ def api_edit_food(id):
 
     global api_user_id
 
-    user_id = session.get("user_id") or api_user_id
+    user_id = (
+        session.get("user_id")
+        or api_user_id
+    )
 
     if user_id is None:
 
@@ -1205,15 +1231,15 @@ def api_edit_food(id):
             "error": "Not logged in"
         }), 401
 
-
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(
+        silent=True
+    ) or {}
 
     food = data.get("food")
     category = data.get("category")
     quantity = data.get("quantity")
     unit = data.get("unit")
     expiry = data.get("expiry")
-
 
     try:
 
@@ -1225,17 +1251,14 @@ def api_edit_food(id):
             "error": "Invalid quantity"
         }), 400
 
-
     if quantity <= 0:
 
         return jsonify({
             "error": "Quantity must be greater than 0"
         }), 400
 
-
     connection = db()
     cursor = connection.cursor()
-
 
     cursor.execute("""
         UPDATE foods
@@ -1257,20 +1280,17 @@ def api_edit_food(id):
         user_id
     ))
 
-
     connection.commit()
 
     changed = cursor.rowcount
 
     connection.close()
 
-
     if changed == 0:
 
         return jsonify({
             "error": "Food not found"
         }), 404
-
 
     return jsonify({
         "success": True
@@ -1281,14 +1301,21 @@ def api_edit_food(id):
 # FLUTTER USED FOOD
 # =====================================================
 
-@app.route("/api/foods/<int:id>/use-one", methods=["POST"])
+@app.route(
+    "/api/foods/<int:id>/use-one",
+    methods=["POST"]
+)
 def api_use_one_food(id):
 
     global api_user_id
 
-    user_id = session.get("user_id") or api_user_id
+    user_id = (
+        session.get("user_id")
+        or api_user_id
+    )
 
     if user_id is None:
+
         return jsonify({
             "error": "Not logged in"
         }), 401
@@ -1301,12 +1328,17 @@ def api_use_one_food(id):
         FROM foods
         WHERE id = ?
         AND user_id = ?
-    """, (id, user_id))
+    """, (
+        id,
+        user_id
+    ))
 
     row = cursor.fetchone()
 
     if row is None:
+
         connection.close()
+
         return jsonify({
             "error": "Food not found"
         }), 404
@@ -1314,21 +1346,31 @@ def api_use_one_food(id):
     quantity, unit, food_name, status, expiry = row
 
     if status != "active":
+
         connection.close()
+
         return jsonify({
             "error": "This food is already used up."
         }), 400
 
     try:
-        current_quantity = float(quantity)
+
+        current_quantity = float(
+            quantity
+        )
+
     except (TypeError, ValueError):
+
         connection.close()
+
         return jsonify({
             "error": "Invalid food quantity."
         }), 400
 
     if current_quantity <= 0:
+
         connection.close()
+
         return jsonify({
             "error": "Food quantity is already zero."
         }), 400
@@ -1339,6 +1381,7 @@ def api_use_one_food(id):
     )
 
     if new_quantity <= 0:
+
         cursor.execute("""
             UPDATE foods
             SET quantity = 0,
@@ -1355,7 +1398,9 @@ def api_use_one_food(id):
             id,
             user_id
         ))
+
     else:
+
         cursor.execute("""
             UPDATE foods
             SET quantity = ?
@@ -1384,12 +1429,18 @@ def api_use_one_food(id):
 # FLUTTER DELETE FOOD
 # =====================================================
 
-@app.route("/api/foods/<int:id>", methods=["DELETE"])
+@app.route(
+    "/api/foods/<int:id>",
+    methods=["DELETE"]
+)
 def api_delete_food(id):
 
     global api_user_id
 
-    user_id = session.get("user_id") or api_user_id
+    user_id = (
+        session.get("user_id")
+        or api_user_id
+    )
 
     if user_id is None:
 
@@ -1397,10 +1448,8 @@ def api_delete_food(id):
             "error": "Not logged in"
         }), 401
 
-
     connection = db()
     cursor = connection.cursor()
-
 
     cursor.execute("""
         DELETE FROM foods
@@ -1411,20 +1460,17 @@ def api_delete_food(id):
         user_id
     ))
 
-
     connection.commit()
 
     changed = cursor.rowcount
 
     connection.close()
 
-
     if changed == 0:
 
         return jsonify({
             "error": "Food not found"
         }), 404
-
 
     return jsonify({
         "success": True
