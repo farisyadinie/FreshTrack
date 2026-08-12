@@ -1,0 +1,447 @@
+<title>FreshTrack - My Pantry</title>
+
+<link rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}">
+
+
+<div class="inventory-page">
+
+
+    <!-- HEADER -->
+
+    <div class="inventory-header">
+
+        <div>
+
+            <h1>🥬 Your Pantry</h1>
+
+            <p>
+                Keep track of the food in your pantry.
+            </p>
+
+        </div>
+
+        <a href="/dashboard" class="back-button">
+            📊 Dashboard
+        </a>
+
+    </div>
+
+
+    <!-- ADD FOOD -->
+
+    <div class="add-food-card">
+
+        <h2>➕ Add Food</h2>
+
+        <form method="POST">
+
+            <div class="inventory-form-grid">
+
+                <div class="form-group">
+
+                    <label>Food Name</label>
+
+                    <input
+                        type="text"
+                        name="food"
+                        placeholder="e.g. Chocolate"
+                        required>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>Category</label>
+
+                    <select name="category" required>
+
+                        <option value="">
+                            Select category
+                        </option>
+
+                        <option value="Dairy">🥛 Dairy</option>
+                        <option value="Fruits">🍎 Fruits</option>
+                        <option value="Vegetables">🥦 Vegetables</option>
+                        <option value="Grains">🌾 Grains</option>
+                        <option value="Meat">🥩 Meat</option>
+                        <option value="Seafood">🐟 Seafood</option>
+                        <option value="Frozen">🧊 Frozen</option>
+                        <option value="Snacks">🍪 Snacks</option>
+                        <option value="Beverages">🥤 Beverages</option>
+                        <option value="Bakery">🥐 Bakery</option>
+                        <option value="Condiments">🫙 Condiments</option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>Quantity</label>
+
+                    <input
+                        type="number"
+                        name="quantity"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="e.g. 2"
+                        required>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>Unit</label>
+
+                    <select name="unit" required>
+
+                        <option value="">
+                            Select unit
+                        </option>
+
+                        <option value="pieces">pieces</option>
+                        <option value="packs">packs</option>
+                        <option value="boxes">boxes</option>
+                        <option value="bottles">bottles</option>
+                        <option value="cans">cans</option>
+                        <option value="bags">bags</option>
+                        <option value="jars">jars</option>
+                        <option value="cartons">cartons</option>
+                        <option value="containers">containers</option>
+                        <option value="loaves">loaves</option>
+                        <option value="kg">kg</option>
+                        <option value="g">g</option>
+                        <option value="L">L</option>
+                        <option value="ml">ml</option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>Expiry Date</label>
+
+                    <input
+                        type="date"
+                        name="expiry"
+                        required>
+
+                </div>
+
+            </div>
+
+
+            <button type="submit" class="add-food-submit">
+                + Add Food
+            </button>
+
+        </form>
+
+    </div>
+
+
+    <!-- FILTER BUTTONS -->
+
+    <div class="inventory-filters">
+
+        <a
+            href="/inventory"
+            class="filter-button {% if filter_type == 'all' %}active{% endif %}">
+            🥕 All
+        </a>
+
+
+        <a
+            href="/inventory?filter=expiring"
+            class="filter-button {% if filter_type == 'expiring' %}active{% endif %}">
+            🟠 Expiring Soon
+        </a>
+
+
+        <a
+            href="/inventory?filter=expired"
+            class="filter-button {% if filter_type == 'expired' %}active{% endif %}">
+            🔴 Expired
+        </a>
+
+
+        <a
+            href="/inventory?filter=low-stock"
+            class="filter-button {% if filter_type == 'low-stock' %}active{% endif %}">
+            🟡 Low Stock
+        </a>
+
+    </div>
+
+
+    <!-- PANTRY -->
+
+    <div class="pantry-section">
+
+        <div class="section-title">
+
+            <h2>
+                {{ filter_title }}
+            </h2>
+
+            <span>
+                {{ foods|length }} items
+            </span>
+
+        </div>
+
+
+        {% if foods %}
+
+            <div class="inventory-list">
+
+                {% for food in foods %}
+
+                    <div class="inventory-card">
+
+
+                        <!-- ICON -->
+
+                        <div class="inventory-icon">
+
+                            {% if food[3] == "Dairy" %}
+                                🥛
+
+                            {% elif food[3] == "Fruits" %}
+                                🍎
+
+                            {% elif food[3] == "Vegetables" %}
+                                🥦
+
+                            {% elif food[3] == "Grains" %}
+                                🌾
+
+                            {% elif food[3] == "Meat" %}
+                                🥩
+
+                            {% elif food[3] == "Seafood" %}
+                                🐟
+
+                            {% elif food[3] == "Frozen" %}
+                                🧊
+
+                            {% elif food[3] == "Snacks" %}
+                                🍪
+
+                            {% elif food[3] == "Beverages" %}
+                                🥤
+
+                            {% elif food[3] == "Bakery" %}
+                                🥐
+
+                            {% elif food[3] == "Condiments" %}
+                                🫙
+
+                            {% else %}
+                                📦
+                            {% endif %}
+
+                        </div>
+
+
+                        <!-- FOOD INFORMATION -->
+
+                        <div class="inventory-info">
+
+                            <h3>
+                                {{ food[2] }}
+                            </h3>
+
+                            <span class="inventory-category">
+                                {{ food[3] }}
+                            </span>
+
+
+                            <div class="inventory-details">
+
+                                <div>
+
+                                    <small>
+                                        Quantity
+                                    </small>
+
+                                    <strong>
+
+                                        {% if food[4]|float == food[4]|int %}
+
+                                            {{ food[4]|int }}
+
+                                        {% else %}
+
+                                            {{ food[4] }}
+
+                                        {% endif %}
+
+                                        {{ food[5] }}
+
+                                    </strong>
+
+                                </div>
+
+
+                                <div>
+
+                                    <small>
+                                        Expiry
+                                    </small>
+
+                                    <strong>
+                                        {{ food[6] }}
+                                    </strong>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- STATUS -->
+
+                        <div class="inventory-status">
+
+                            {% if food[6] < today %}
+
+                                <span class="status expired">
+                                    🔴 Expired
+                                </span>
+
+                            {% elif food[6] <= expiring_limit %}
+
+                                <span class="status expiring">
+                                    🟠 Expiring Soon
+                                </span>
+
+                            {% elif food[4]|float <= 2 %}
+
+                                <span class="status low-stock">
+                                    🟡 Low Stock
+                                </span>
+
+                            {% else %}
+
+                                <span class="status good">
+                                    🟢 Good
+                                </span>
+
+                            {% endif %}
+
+                        </div>
+
+
+                        <!-- ACTIONS -->
+
+                        <div class="inventory-actions">
+
+                            <a href="/edit/{{ food[0] }}">
+                                ✏️ Edit
+                            </a>
+
+                            <a href="/used/{{ food[0] }}">
+                                ✅ Used Up
+                            </a>
+
+                            <a
+                                href="/delete/{{ food[0] }}"
+                                onclick="return confirm('Delete this food?');">
+
+                                🗑️ Delete
+
+                            </a>
+
+                        </div>
+
+                    </div>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="empty-inventory">
+
+                <div>
+                    🌱
+                </div>
+
+
+                {% if filter_type == "expiring" %}
+
+                    <h3>
+                        Nothing is expiring soon
+                    </h3>
+
+                    <p>
+                        You have no food expiring within the next 3 days.
+                    </p>
+
+
+                {% elif filter_type == "expired" %}
+
+                    <h3>
+                        No expired food
+                    </h3>
+
+                    <p>
+                        Great! You don't have any expired food.
+                    </p>
+
+
+                {% elif filter_type == "low-stock" %}
+
+                    <h3>
+                        No low-stock food
+                    </h3>
+
+                    <p>
+                        Your pantry has no food currently marked as low stock.
+                    </p>
+
+
+                {% else %}
+
+                    <h3>
+                        Your pantry is empty
+                    </h3>
+
+                    <p>
+                        Add your first food above to start tracking your pantry.
+                    </p>
+
+                {% endif %}
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+
+    <!-- FOOTER -->
+
+    <div class="inventory-footer">
+
+        <a href="/dashboard">
+            ← Back to Dashboard
+        </a>
+
+        <a href="/logout">
+            Logout
+        </a>
+
+    </div>
+
+
+</div>

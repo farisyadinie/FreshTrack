@@ -1,0 +1,237 @@
+<title>FreshTrack - Edit Food</title>
+
+<link rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}">
+
+<div class="container">
+
+    <h1>✏️ Edit Food</h1>
+
+    {% if food %}
+
+        <form method="POST">
+
+            <div class="form-group">
+
+                <label>Food Name</label>
+
+                <input
+                    type="text"
+                    name="food"
+                    value="{{ food[2] }}"
+                    required>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>Category</label>
+
+                <select name="category" required>
+
+                    <option value="Dairy"
+                        {% if food[3] == "Dairy" %}selected{% endif %}>
+                        🥛 Dairy
+                    </option>
+
+                    <option value="Fruits"
+                        {% if food[3] == "Fruits" %}selected{% endif %}>
+                        🍎 Fruits
+                    </option>
+
+                    <option value="Vegetables"
+                        {% if food[3] == "Vegetables" %}selected{% endif %}>
+                        🥦 Vegetables
+                    </option>
+
+                    <option value="Grains"
+                        {% if food[3] == "Grains" %}selected{% endif %}>
+                        🌾 Grains
+                    </option>
+
+                    <option value="Meat"
+                        {% if food[3] == "Meat" %}selected{% endif %}>
+                        🥩 Meat
+                    </option>
+
+                    <option value="Seafood"
+                        {% if food[3] == "Seafood" %}selected{% endif %}>
+                        🐟 Seafood
+                    </option>
+
+                    <option value="Frozen"
+                        {% if food[3] == "Frozen" %}selected{% endif %}>
+                        🧊 Frozen
+                    </option>
+
+                    <option value="Snacks"
+                        {% if food[3] == "Snacks" %}selected{% endif %}>
+                        🍪 Snacks
+                    </option>
+
+                    <option value="Beverages"
+                        {% if food[3] == "Beverages" %}selected{% endif %}>
+                        🥤 Beverages
+                    </option>
+
+                    <option value="Bakery"
+                        {% if food[3] == "Bakery" %}selected{% endif %}>
+                        🥐 Bakery
+                    </option>
+
+                    <option value="Condiments"
+                        {% if food[3] == "Condiments" %}selected{% endif %}>
+                        🫙 Condiments
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div class="form-row">
+
+                <div class="form-group">
+
+                    <label>Quantity</label>
+
+                    <input
+                        type="number"
+                        name="quantity"
+                        min="0.01"
+                        step="0.01"
+                        value="{{ food[4] }}"
+                        required>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>Unit</label>
+
+                    <select name="unit" required>
+
+                        <option value="pieces"
+                            {% if food[5] == "pieces" %}selected{% endif %}>
+                            pieces
+                        </option>
+
+                        <option value="packs"
+                            {% if food[5] == "packs" %}selected{% endif %}>
+                            packs
+                        </option>
+
+                        <option value="boxes"
+                            {% if food[5] == "boxes" %}selected{% endif %}>
+                            boxes
+                        </option>
+
+                        <option value="bottles"
+                            {% if food[5] == "bottles" %}selected{% endif %}>
+                            bottles
+                        </option>
+
+                        <option value="cans"
+                            {% if food[5] == "cans" %}selected{% endif %}>
+                            cans
+                        </option>
+
+                        <option value="bags"
+                            {% if food[5] == "bags" %}selected{% endif %}>
+                            bags
+                        </option>
+
+                        <option value="jars"
+                            {% if food[5] == "jars" %}selected{% endif %}>
+                            jars
+                        </option>
+
+                        <option value="cartons"
+                            {% if food[5] == "cartons" %}selected{% endif %}>
+                            cartons
+                        </option>
+
+                        <option value="containers"
+                            {% if food[5] == "containers" %}selected{% endif %}>
+                            containers
+                        </option>
+
+                        <option value="loaves"
+                            {% if food[5] == "loaves" %}selected{% endif %}>
+                            loaves
+                        </option>
+
+                        <option value="kg"
+                            {% if food[5] == "kg" %}selected{% endif %}>
+                            kg
+                        </option>
+
+                        <option value="g"
+                            {% if food[5] == "g" %}selected{% endif %}>
+                            g
+                        </option>
+
+                        <option value="L"
+                            {% if food[5] == "L" %}selected{% endif %}>
+                            L
+                        </option>
+
+                        <option value="ml"
+                            {% if food[5] == "ml" %}selected{% endif %}>
+                            ml
+                        </option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>Expiry Date</label>
+
+                <input
+                    type="date"
+                    name="expiry"
+                    value="{{ food[6] }}"
+                    required>
+
+            </div>
+
+
+            <button type="submit">
+                Save Changes
+            </button>
+
+        </form>
+
+
+        <div class="page-link">
+
+            <a href="/inventory">
+                ← Back to My Pantry
+            </a>
+
+        </div>
+
+    {% else %}
+
+        <div class="empty-state">
+
+            Food not found.
+
+            <br><br>
+
+            <a href="/inventory">
+                Back to My Pantry
+            </a>
+
+        </div>
+
+    {% endif %}
+
+</div>

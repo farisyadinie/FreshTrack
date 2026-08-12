@@ -1,0 +1,760 @@
+<title>FreshTrack Dashboard</title>
+
+<link rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}">
+
+
+<div class="dashboard-page">
+
+
+    <!-- SIDEBAR -->
+
+    <aside class="sidebar">
+
+        <div class="sidebar-logo">
+            🥬 FreshTrack
+        </div>
+
+        <a href="/dashboard"
+           class="sidebar-link active">
+            📊 Dashboard
+        </a>
+
+        <a href="/inventory"
+           class="sidebar-link">
+            🥕 My Pantry
+        </a>
+
+        <a href="/inventory"
+           class="sidebar-link">
+            ➕ Add Food
+        </a>
+
+        <a href="/logout"
+           class="sidebar-link logout-link">
+            ↪ Logout
+        </a>
+
+    </aside>
+
+
+    <!-- MAIN -->
+
+    <main class="dashboard-main">
+
+
+        <!-- HEADER -->
+
+        <div class="dashboard-header">
+
+            <div>
+
+                <h1>
+                    Hi, {{ name }}! 👋
+                </h1>
+
+                <p>
+                    Here's what's happening in your pantry.
+                </p>
+
+            </div>
+
+            <a href="/inventory"
+               class="add-food-button">
+                + Add Food
+            </a>
+
+        </div>
+
+
+        <!-- PANTRY OVERVIEW -->
+
+        <h2>Pantry Overview</h2>
+
+
+        <div class="overview-grid">
+
+
+            <!-- TOTAL FOODS -->
+
+            <a href="/inventory"
+               class="overview-card">
+
+                <div class="overview-icon">
+                    🧺
+                </div>
+
+                <div>
+
+                    <small>
+                        Total Foods
+                    </small>
+
+                    <strong>
+                        {{ total_foods }}
+                    </strong>
+
+                </div>
+
+            </a>
+
+
+            <!-- EXPIRING SOON -->
+
+            <a href="/inventory?filter=expiring"
+               class="overview-card">
+
+                <div class="overview-icon">
+                    ⏰
+                </div>
+
+                <div>
+
+                    <small>
+                        Expiring Soon
+                    </small>
+
+                    <strong>
+                        {{ expiring_soon }}
+                    </strong>
+
+                </div>
+
+            </a>
+
+
+            <!-- EXPIRED -->
+
+            <a href="/inventory?filter=expired"
+               class="overview-card">
+
+                <div class="overview-icon">
+                    ⚠️
+                </div>
+
+                <div>
+
+                    <small>
+                        Expired
+                    </small>
+
+                    <strong>
+                        {{ expired }}
+                    </strong>
+
+                </div>
+
+            </a>
+
+
+            <!-- LOW STOCK -->
+
+            <a href="/inventory?filter=low-stock"
+               class="overview-card">
+
+                <div class="overview-icon">
+                    📦
+                </div>
+
+                <div>
+
+                    <small>
+                        Low Stock
+                    </small>
+
+                    <strong>
+                        {{ low_stock }}
+                    </strong>
+
+                </div>
+
+            </a>
+
+
+        </div>
+
+
+        <!-- PANTRY + HEALTH -->
+
+        <div class="dashboard-columns">
+
+
+            <!-- YOUR PANTRY -->
+
+            <section class="dashboard-section">
+
+
+                <div class="section-header">
+
+                    <h2>
+                        Your Pantry
+                    </h2>
+
+                    <a href="/inventory">
+                        View All
+                    </a>
+
+                </div>
+
+
+                {% if pantry_foods %}
+
+
+                    {% for food in pantry_foods %}
+
+
+                        <div class="pantry-row">
+
+
+                            <!-- FOOD ICON -->
+
+                            <div class="pantry-food-icon">
+
+                                {% if food.category == "Dairy" %}
+                                    🥛
+
+                                {% elif food.category == "Fruits" %}
+                                    🍎
+
+                                {% elif food.category == "Vegetables" %}
+                                    🥦
+
+                                {% elif food.category == "Grains" %}
+                                    🌾
+
+                                {% elif food.category == "Meat" %}
+                                    🥩
+
+                                {% elif food.category == "Seafood" %}
+                                    🐟
+
+                                {% elif food.category == "Frozen" %}
+                                    🧊
+
+                                {% elif food.category == "Snacks" %}
+                                    🍪
+
+                                {% elif food.category == "Beverages" %}
+                                    🥤
+
+                                {% elif food.category == "Bakery" %}
+                                    🥐
+
+                                {% elif food.category == "Condiments" %}
+                                    🫙
+
+                                {% else %}
+                                    📦
+                                {% endif %}
+
+                            </div>
+
+
+                            <!-- FOOD INFORMATION -->
+
+                            <div class="pantry-food-info">
+
+                                <strong>
+                                    {{ food.name }}
+                                </strong>
+
+                                <small>
+
+                                    {{ food.category }}
+
+                                    ·
+
+                                    {% if food.quantity == food.quantity|int %}
+
+                                        {{ food.quantity|int }}
+
+                                    {% else %}
+
+                                        {{ food.quantity }}
+
+                                    {% endif %}
+
+                                    {{ food.unit }}
+
+                                </small>
+
+                            </div>
+
+
+                            <!-- STATUS -->
+
+                            <div class="food-status">
+
+
+                                {% if food.status_class == "expired" %}
+
+                                    <span class="status expired">
+                                        🔴 Expired
+                                    </span>
+
+
+                                {% elif food.status_class == "expiring" %}
+
+                                    <span class="status expiring">
+                                        🟠 Expiring Soon
+                                    </span>
+
+
+                                {% elif food.status_class == "low-stock" %}
+
+                                    <span class="status low-stock">
+                                        🟡 Low Stock
+                                    </span>
+
+
+                                {% else %}
+
+                                    <span class="status good">
+                                        🟢 Good
+                                    </span>
+
+                                {% endif %}
+
+
+                            </div>
+
+
+                            <!-- EXPIRY -->
+
+                            <div class="pantry-expiry">
+
+                                {{ food.expiry_message }}
+
+                                <br>
+
+                                <small>
+                                    {{ food.expiry }}
+                                </small>
+
+                            </div>
+
+
+                        </div>
+
+
+                    {% endfor %}
+
+
+                {% else %}
+
+
+                    <div class="empty-state">
+
+                        🌱 Your pantry is empty.
+
+                        <br><br>
+
+                        <a href="/inventory">
+                            Add your first food
+                        </a>
+
+                    </div>
+
+
+                {% endif %}
+
+
+            </section>
+
+
+
+            <!-- PANTRY HEALTH -->
+
+            <section class="dashboard-section">
+
+
+                <div class="section-header">
+
+                    <h2>
+                        Pantry Health
+                    </h2>
+
+                </div>
+
+
+                <div class="health-box">
+
+
+                    <div class="health-score">
+                        {{ health_score }}
+                    </div>
+
+                    <div class="health-label">
+                        / 100
+                    </div>
+
+
+                    <div class="progress-bar">
+
+                        <div
+                            class="progress-fill"
+                            style="width: {{ health_score }}%;">
+                        </div>
+
+                    </div>
+
+
+                    <p>
+                        {{ health_message }}
+                    </p>
+
+
+                </div>
+
+
+
+                <!-- FRESHTRACK IMPACT -->
+
+                <div class="impact-box">
+
+
+                    <div class="impact-title">
+                        🌱 FreshTrack Impact
+                    </div>
+
+
+                    {% if waste_avoidance is not none %}
+
+
+                        <div class="impact-number">
+                            {{ waste_avoidance }}%
+                        </div>
+
+
+                        <div class="progress-bar">
+
+                            <div
+                                class="progress-fill"
+                                style="width: {{ waste_avoidance }}%;">
+                            </div>
+
+                        </div>
+
+
+                        <p>
+                            of your tracked food was used
+                            before it became waste.
+                        </p>
+
+
+                        <small>
+
+                            {{ used_foods }} used
+
+                            &nbsp;·&nbsp;
+
+                            {{ expired }} expired
+
+                        </small>
+
+
+                    {% else %}
+
+
+                        <div class="impact-number">
+                            0%
+                        </div>
+
+
+                        <div class="progress-bar">
+
+                            <div
+                                class="progress-fill"
+                                style="width: 0%;">
+                            </div>
+
+                        </div>
+
+
+                        <p>
+                            Start tracking your pantry
+                            to build your FreshTrack impact.
+                        </p>
+
+
+                    {% endif %}
+
+
+                </div>
+
+
+            </section>
+
+
+        </div>
+
+
+
+        <!-- EXPIRING SOON + CATEGORIES -->
+
+        <div class="dashboard-columns">
+
+
+            <!-- EXPIRING SOON -->
+
+            <section class="dashboard-section">
+
+
+                <div class="section-header">
+
+                    <h2>
+                        ⏰ Expiring Soon
+                    </h2>
+
+                    <a href="/inventory?filter=expiring">
+                        View All
+                    </a>
+
+                </div>
+
+
+                {% if expiring_foods %}
+
+
+                    {% for food in expiring_foods %}
+
+
+                        <div class="simple-row">
+
+
+                            <div>
+
+                                <strong>
+                                    {{ food[0] }}
+                                </strong>
+
+                                <small>
+
+                                    {{ food[1] }}
+
+                                    ·
+
+                                    {% if food[2]|float == food[2]|int %}
+                                        {{ food[2]|int }}
+                                    {% else %}
+                                        {{ food[2] }}
+                                    {% endif %}
+
+                                    {{ food[3] }}
+
+                                </small>
+
+                            </div>
+
+
+                            <span class="status expiring">
+                                🟠 Expires {{ food[4] }}
+                            </span>
+
+
+                        </div>
+
+
+                    {% endfor %}
+
+
+                {% else %}
+
+
+                    <div class="empty-state">
+
+                        🎉 Nothing is expiring soon!
+
+                    </div>
+
+
+                {% endif %}
+
+
+            </section>
+
+
+
+            <!-- CATEGORIES -->
+
+            <section class="dashboard-section">
+
+
+                <div class="section-header">
+
+                    <h2>
+                        🗂️ Categories
+                    </h2>
+
+                </div>
+
+
+                {% if category_breakdown %}
+
+
+                    {% for category in category_breakdown %}
+
+
+                        <div class="category-row">
+
+
+                            <div>
+
+
+                                {% if category[0] == "Dairy" %}
+                                    🥛
+
+                                {% elif category[0] == "Fruits" %}
+                                    🍎
+
+                                {% elif category[0] == "Vegetables" %}
+                                    🥦
+
+                                {% elif category[0] == "Grains" %}
+                                    🌾
+
+                                {% elif category[0] == "Meat" %}
+                                    🥩
+
+                                {% elif category[0] == "Seafood" %}
+                                    🐟
+
+                                {% elif category[0] == "Frozen" %}
+                                    🧊
+
+                                {% elif category[0] == "Snacks" %}
+                                    🍪
+
+                                {% elif category[0] == "Beverages" %}
+                                    🥤
+
+                                {% elif category[0] == "Bakery" %}
+                                    🥐
+
+                                {% elif category[0] == "Condiments" %}
+                                    🫙
+
+                                {% else %}
+                                    📦
+                                {% endif %}
+
+
+                                {{ category[0] }}
+
+
+                            </div>
+
+
+                            <strong>
+                                {{ category[1] }}
+                            </strong>
+
+
+                        </div>
+
+
+                    {% endfor %}
+
+
+                {% else %}
+
+
+                    <div class="empty-state">
+
+                        No categories yet.
+
+                    </div>
+
+
+                {% endif %}
+
+
+            </section>
+
+
+        </div>
+
+
+
+        <!-- LOW STOCK -->
+
+        <section class="dashboard-section">
+
+
+            <div class="section-header">
+
+                <h2>
+                    📦 Low Stock
+                </h2>
+
+                <a href="/inventory?filter=low-stock">
+                    View All
+                </a>
+
+            </div>
+
+
+            {% if low_stock_foods %}
+
+
+                {% for food in low_stock_foods %}
+
+
+                    <div class="simple-row">
+
+
+                        <div>
+
+                            <strong>
+                                {{ food[0] }}
+                            </strong>
+
+                            <small>
+
+                                {{ food[1] }}
+
+                                ·
+
+                                {% if food[2]|float == food[2]|int %}
+                                    {{ food[2]|int }}
+                                {% else %}
+                                    {{ food[2] }}
+                                {% endif %}
+
+                                {{ food[3] }}
+
+                            </small>
+
+                        </div>
+
+
+                        <span class="status low-stock">
+                            🟡 Low Stock
+                        </span>
+
+
+                    </div>
+
+
+                {% endfor %}
+
+
+            {% else %}
+
+
+                <div class="empty-state">
+
+                    👍 Your pantry isn't low on stock.
+
+                </div>
+
+
+            {% endif %}
+
+
+        </section>
+
+
+    </main>
+
+</div>

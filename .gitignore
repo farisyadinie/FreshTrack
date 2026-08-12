@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# SQLite database
+database/*.db
+database/*.sqlite
+database/*.sqlite3
+
+# Flutter
+freshtrack_app/.dart_tool/
+freshtrack_app/build/
+freshtrack_app/.idea/
+freshtrack_app/.metadata
+freshtrack_app/.flutter-plugins
+freshtrack_app/.flutter-plugins-dependencies
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
