@@ -38,7 +38,8 @@ class FreshTrackApp extends StatelessWidget {
 // =====================================================
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:5000';
+  static const String baseUrl =
+    'https://freshtrack-backend-haum.onrender.com';
 
   final BrowserClient client = BrowserClient()
     ..withCredentials = true;
