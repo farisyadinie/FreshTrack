@@ -8,21 +8,44 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 
-app.secret_key = "freshtrack-secret-key"
+app.secret_key = os.environ.get(
+    "SECRET_KEY",
+    "freshtrack-secret-key"
+)
+
+# =====================================================
+# CORS
+# =====================================================
 
 CORS(
     app,
-    supports_credentials=True
+    resources={
+        r"/api/*": {
+            "origins": [
+                "https://fresh-track-rho-two.vercel.app",
+                "http://localhost:61150",
+                "http://localhost:5000",
+            ],
+            "methods": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "OPTIONS",
+            ],
+            "allow_headers": [
+                "Content-Type",
+                "Authorization",
+            ],
+            "supports_credentials": True,
+        }
+    }
 )
 
-
 # =====================================================
-# LOCAL FLUTTER USER
+# FLUTTER API USER
 # =====================================================
 
-# For this local development project.
-# This prevents Flutter Web from depending only
-# on the browser session cookie.
 api_user_id = None
 
 
@@ -31,9 +54,16 @@ api_user_id = None
 # =====================================================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE_DIR = os.path.join(BASE_DIR, "database")
 
-os.makedirs(DATABASE_DIR, exist_ok=True)
+DATABASE_DIR = os.path.join(
+    BASE_DIR,
+    "database"
+)
+
+os.makedirs(
+    DATABASE_DIR,
+    exist_ok=True
+)
 
 DATABASE_PATH = os.path.join(
     DATABASE_DIR,
@@ -61,8 +91,6 @@ def initialize_database():
     connection = db()
     cursor = connection.cursor()
 
-    # USERS TABLE
-
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,15 +100,13 @@ def initialize_database():
         )
     """)
 
-    # FOODS TABLE
-
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS foods (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             food TEXT NOT NULL,
             category TEXT NOT NULL,
-            quantity INTEGER NOT NULL,
+            quantity REAL NOT NULL,
             unit TEXT NOT NULL,
             expiry TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'active',
@@ -93,12 +119,11 @@ def initialize_database():
     connection.close()
 
 
-# Create tables before the rest of the app starts
 initialize_database()
 
 
 # =====================================================
-# FOOD IMPACT COLUMN
+# ENSURE FOOD IMPACT COLUMN
 # =====================================================
 
 def ensure_food_impact_column():
@@ -122,7 +147,6 @@ def ensure_food_impact_column():
             ADD COLUMN used_before_expiry INTEGER DEFAULT 0
         """)
 
-        # Preserve existing "used" records when upgrading.
         cursor.execute("""
             UPDATE foods
             SET used_before_expiry = 1
@@ -146,14 +170,11 @@ ensure_food_impact_column()
 
 @app.route("/")
 def home():
-
-    return render_template(
-        "index.html"
-    )
+    return render_template("index.html")
 
 
 # =====================================================
-# LOGIN - WEB
+# WEB LOGIN
 # =====================================================
 
 @app.route("/login", methods=["GET", "POST"])
@@ -161,14 +182,14 @@ def login():
 
     if request.method == "POST":
 
-        email = request.form["email"]
-        password = request.form["password"]
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
 
         connection = db()
         cursor = connection.cursor()
 
         cursor.execute("""
-            SELECT *
+            SELECT id, name, email
             FROM users
             WHERE email = ?
             AND password = ?
@@ -192,9 +213,7 @@ def login():
             error="Invalid email or password"
         )
 
-    return render_template(
-        "login.html"
-    )
+    return render_template("login.html")
 
 
 # =====================================================
@@ -206,44 +225,72 @@ def register():
 
     if request.method == "POST":
 
-        name = request.form["name"]
-        email = request.form["email"]
-        password = request.form["password"]
+        name = request.form.get("name", "").strip()
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+
+        if not name or not email or not password:
+
+            return render_template(
+                "register.html",
+                error="All fields are required"
+            )
 
         connection = db()
         cursor = connection.cursor()
 
-        cursor.execute("""
-            INSERT INTO users
-            (
+        try:
+
+            cursor.execute("""
+                INSERT INTO users
+                (
+                    name,
+                    email,
+                    password
+                )
+                VALUES (?, ?, ?)
+            """, (
                 name,
                 email,
                 password
+            ))
+
+            connection.commit()
+
+            user_id = cursor.lastrowid
+
+            session["user_id"] = user_id
+
+        except sqlite3.IntegrityError:
+
+            connection.close()
+
+            return render_template(
+                "register.html",
+                error="Email already registered"
             )
-            VALUES (?, ?, ?)
-        """, (
-            name,
-            email,
-            password
-        ))
-
-        connection.commit()
-
-        user_id = cursor.lastrowid
 
         connection.close()
 
-        session["user_id"] = user_id
-
         return redirect("/dashboard")
 
-    return render_template(
-        "register.html"
+    return render_template("register.html")
+
+
+# =====================================================
+# CURRENT USER HELPER
+# =====================================================
+
+def get_current_user_id():
+
+    return (
+        session.get("user_id")
+        or api_user_id
     )
 
 
 # =====================================================
-# DASHBOARD - WEB
+# DASHBOARD
 # =====================================================
 
 @app.route("/dashboard")
@@ -264,8 +311,6 @@ def dashboard():
     connection = db()
     cursor = connection.cursor()
 
-    # USER
-
     cursor.execute("""
         SELECT name
         FROM users
@@ -277,12 +322,9 @@ def dashboard():
     if not user:
 
         connection.close()
-
         session.clear()
 
         return redirect("/login")
-
-    # TOTAL FOODS
 
     cursor.execute("""
         SELECT COUNT(*)
@@ -292,8 +334,6 @@ def dashboard():
     """, (user_id,))
 
     total_foods = cursor.fetchone()[0]
-
-    # EXPIRING SOON
 
     cursor.execute("""
         SELECT COUNT(*)
@@ -309,8 +349,6 @@ def dashboard():
 
     expiring_soon = cursor.fetchone()[0]
 
-    # EXPIRED
-
     cursor.execute("""
         SELECT COUNT(*)
         FROM foods
@@ -323,8 +361,6 @@ def dashboard():
     ))
 
     expired = cursor.fetchone()[0]
-
-    # LOW STOCK
 
     cursor.execute("""
         SELECT COUNT(*)
@@ -339,8 +375,6 @@ def dashboard():
     ))
 
     low_stock = cursor.fetchone()[0]
-
-    # PANTRY
 
     cursor.execute("""
         SELECT food, category, quantity, unit, expiry
@@ -392,15 +426,11 @@ def dashboard():
 
             days_ago = abs(days_until_expiry)
 
-            if days_ago == 1:
-
-                expiry_message = "Expired yesterday"
-
-            else:
-
-                expiry_message = (
-                    f"Expired {days_ago} days ago"
-                )
+            expiry_message = (
+                "Expired yesterday"
+                if days_ago == 1
+                else f"Expired {days_ago} days ago"
+            )
 
         elif days_until_expiry == 0:
 
@@ -427,8 +457,6 @@ def dashboard():
             "expiry_message": expiry_message
         })
 
-    # EXPIRING FOOD
-
     cursor.execute("""
         SELECT food, category, quantity, unit, expiry
         FROM foods
@@ -443,8 +471,6 @@ def dashboard():
     ))
 
     expiring_foods = cursor.fetchall()
-
-    # LOW STOCK FOOD
 
     cursor.execute("""
         SELECT food, category, quantity, unit
@@ -461,8 +487,6 @@ def dashboard():
 
     low_stock_foods = cursor.fetchall()
 
-    # CATEGORY BREAKDOWN
-
     cursor.execute("""
         SELECT category, COUNT(*)
         FROM foods
@@ -473,8 +497,6 @@ def dashboard():
     """, (user_id,))
 
     category_breakdown = cursor.fetchall()
-
-    # USED FOODS
 
     cursor.execute("""
         SELECT COALESCE(
@@ -493,21 +515,13 @@ def dashboard():
 
     used_foods = cursor.fetchone()[0]
 
-    # IMPACT
-
     tracked_foods = used_foods + expired
 
-    if tracked_foods > 0:
-
-        waste_avoidance = round(
-            (used_foods / tracked_foods) * 100
-        )
-
-    else:
-
-        waste_avoidance = None
-
-    # HEALTH
+    waste_avoidance = (
+        round((used_foods / tracked_foods) * 100)
+        if tracked_foods > 0
+        else None
+    )
 
     health_score = (
         100
@@ -583,29 +597,22 @@ def inventory():
 
     if request.method == "POST":
 
-        food = request.form["food"]
-        category = request.form["category"]
+        food = request.form.get("food", "")
+        category = request.form.get("category", "")
+        unit = request.form.get("unit", "")
+        expiry = request.form.get("expiry", "")
 
         try:
-
             quantity = float(
-                request.form["quantity"]
+                request.form.get("quantity")
             )
-
         except (ValueError, TypeError):
-
             connection.close()
-
             return "Invalid quantity", 400
 
         if quantity <= 0:
-
             connection.close()
-
             return "Quantity must be greater than 0", 400
-
-        unit = request.form["unit"]
-        expiry = request.form["expiry"]
 
         cursor.execute("""
             INSERT INTO foods
@@ -715,7 +722,7 @@ def inventory():
 
 
 # =====================================================
-# EDIT
+# EDIT WEB
 # =====================================================
 
 @app.route("/edit/<int:id>", methods=["GET", "POST"])
@@ -731,29 +738,22 @@ def edit(id):
 
     if request.method == "POST":
 
-        food = request.form["food"]
-        category = request.form["category"]
+        food = request.form.get("food", "")
+        category = request.form.get("category", "")
+        unit = request.form.get("unit", "")
+        expiry = request.form.get("expiry", "")
 
         try:
-
             quantity = float(
-                request.form["quantity"]
+                request.form.get("quantity")
             )
-
         except (ValueError, TypeError):
-
             connection.close()
-
             return "Invalid quantity", 400
 
         if quantity <= 0:
-
             connection.close()
-
             return "Quantity must be greater than 0", 400
-
-        unit = request.form["unit"]
-        expiry = request.form["expiry"]
 
         cursor.execute("""
             UPDATE foods
@@ -801,7 +801,7 @@ def edit(id):
 
 
 # =====================================================
-# USED
+# USED WEB
 # =====================================================
 
 @app.route("/used/<int:id>")
@@ -837,7 +837,7 @@ def used(id):
 
 
 # =====================================================
-# DELETE
+# DELETE WEB
 # =====================================================
 
 @app.route("/delete/<int:id>")
@@ -867,20 +867,34 @@ def delete(id):
 
 
 # =====================================================
-# FLUTTER LOGIN API
+# API LOGIN
 # =====================================================
 
-@app.route("/api/login", methods=["POST"])
+@app.route(
+    "/api/login",
+    methods=["POST", "OPTIONS"]
+)
 def api_login():
 
     global api_user_id
+
+    if request.method == "OPTIONS":
+
+        return jsonify({
+            "success": True
+        }), 200
 
     data = request.get_json(
         silent=True
     ) or {}
 
-    email = data.get("email")
-    password = data.get("password")
+    email = str(
+        data.get("email", "")
+    ).strip()
+
+    password = str(
+        data.get("password", "")
+    )
 
     if not email or not password:
 
@@ -924,18 +938,108 @@ def api_login():
 
 
 # =====================================================
-# FLUTTER DASHBOARD API
+# API REGISTER
 # =====================================================
 
-@app.route("/api/dashboard")
+@app.route(
+    "/api/register",
+    methods=["POST", "OPTIONS"]
+)
+def api_register():
+
+    global api_user_id
+
+    if request.method == "OPTIONS":
+
+        return jsonify({
+            "success": True
+        }), 200
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    name = str(
+        data.get("name", "")
+    ).strip()
+
+    email = str(
+        data.get("email", "")
+    ).strip()
+
+    password = str(
+        data.get("password", "")
+    )
+
+    if not name or not email or not password:
+
+        return jsonify({
+            "error": "Name, email and password are required"
+        }), 400
+
+    connection = db()
+    cursor = connection.cursor()
+
+    try:
+
+        cursor.execute("""
+            INSERT INTO users
+            (
+                name,
+                email,
+                password
+            )
+            VALUES (?, ?, ?)
+        """, (
+            name,
+            email,
+            password
+        ))
+
+        connection.commit()
+
+        user_id = cursor.lastrowid
+
+    except sqlite3.IntegrityError:
+
+        connection.close()
+
+        return jsonify({
+            "error": "Email already registered"
+        }), 409
+
+    connection.close()
+
+    api_user_id = user_id
+    session["user_id"] = user_id
+
+    return jsonify({
+        "success": True,
+        "id": user_id,
+        "name": name,
+        "email": email
+    }), 201
+
+
+# =====================================================
+# API DASHBOARD
+# =====================================================
+
+@app.route(
+    "/api/dashboard",
+    methods=["GET", "OPTIONS"]
+)
 def api_dashboard():
 
     global api_user_id
 
-    user_id = (
-        session.get("user_id")
-        or api_user_id
-    )
+    if request.method == "OPTIONS":
+
+        return jsonify({
+            "success": True
+        }), 200
+
+    user_id = get_current_user_id()
 
     if user_id is None:
 
@@ -970,8 +1074,6 @@ def api_dashboard():
             "error": "User not found"
         }), 401
 
-    # TOTAL FOODS
-
     cursor.execute("""
         SELECT COUNT(*)
         FROM foods
@@ -980,8 +1082,6 @@ def api_dashboard():
     """, (user_id,))
 
     total_foods = cursor.fetchone()[0]
-
-    # EXPIRING
 
     cursor.execute("""
         SELECT COUNT(*)
@@ -997,8 +1097,6 @@ def api_dashboard():
 
     expiring_soon = cursor.fetchone()[0]
 
-    # EXPIRED
-
     cursor.execute("""
         SELECT COUNT(*)
         FROM foods
@@ -1011,8 +1109,6 @@ def api_dashboard():
     ))
 
     expired = cursor.fetchone()[0]
-
-    # LOW STOCK
 
     cursor.execute("""
         SELECT COUNT(*)
@@ -1028,8 +1124,6 @@ def api_dashboard():
 
     low_stock = cursor.fetchone()[0]
 
-    # USED
-
     cursor.execute("""
         SELECT COUNT(*)
         FROM foods
@@ -1041,15 +1135,13 @@ def api_dashboard():
 
     tracked_foods = used_foods + expired
 
-    if tracked_foods > 0:
-
-        waste_avoidance = round(
+    waste_avoidance = (
+        round(
             (used_foods / tracked_foods) * 100
         )
-
-    else:
-
-        waste_avoidance = 0
+        if tracked_foods > 0
+        else 0
+    )
 
     connection.close()
 
@@ -1065,18 +1157,22 @@ def api_dashboard():
 
 
 # =====================================================
-# FLUTTER GET FOODS
+# API GET FOODS
 # =====================================================
 
-@app.route("/api/foods", methods=["GET"])
+@app.route(
+    "/api/foods",
+    methods=["GET", "OPTIONS"]
+)
 def api_foods():
 
-    global api_user_id
+    if request.method == "OPTIONS":
 
-    user_id = (
-        session.get("user_id")
-        or api_user_id
-    )
+        return jsonify({
+            "success": True
+        }), 200
+
+    user_id = get_current_user_id()
 
     if user_id is None:
 
@@ -1118,18 +1214,22 @@ def api_foods():
 
 
 # =====================================================
-# FLUTTER ADD FOOD
+# API ADD FOOD
 # =====================================================
 
-@app.route("/api/foods", methods=["POST"])
+@app.route(
+    "/api/foods",
+    methods=["POST", "OPTIONS"]
+)
 def api_add_food():
 
-    global api_user_id
+    if request.method == "OPTIONS":
 
-    user_id = (
-        session.get("user_id")
-        or api_user_id
-    )
+        return jsonify({
+            "success": True
+        }), 200
+
+    user_id = get_current_user_id()
 
     if user_id is None:
 
@@ -1212,18 +1312,22 @@ def api_add_food():
 
 
 # =====================================================
-# FLUTTER EDIT FOOD
+# API EDIT FOOD
 # =====================================================
 
-@app.route("/api/foods/<int:id>", methods=["PUT"])
+@app.route(
+    "/api/foods/<int:id>",
+    methods=["PUT", "OPTIONS"]
+)
 def api_edit_food(id):
 
-    global api_user_id
+    if request.method == "OPTIONS":
 
-    user_id = (
-        session.get("user_id")
-        or api_user_id
-    )
+        return jsonify({
+            "success": True
+        }), 200
+
+    user_id = get_current_user_id()
 
     if user_id is None:
 
@@ -1298,21 +1402,22 @@ def api_edit_food(id):
 
 
 # =====================================================
-# FLUTTER USED FOOD
+# API USE ONE
 # =====================================================
 
 @app.route(
     "/api/foods/<int:id>/use-one",
-    methods=["POST"]
+    methods=["POST", "OPTIONS"]
 )
 def api_use_one_food(id):
 
-    global api_user_id
+    if request.method == "OPTIONS":
 
-    user_id = (
-        session.get("user_id")
-        or api_user_id
-    )
+        return jsonify({
+            "success": True
+        }), 200
+
+    user_id = get_current_user_id()
 
     if user_id is None:
 
@@ -1355,9 +1460,7 @@ def api_use_one_food(id):
 
     try:
 
-        current_quantity = float(
-            quantity
-        )
+        current_quantity = float(quantity)
 
     except (TypeError, ValueError):
 
@@ -1426,21 +1529,22 @@ def api_use_one_food(id):
 
 
 # =====================================================
-# FLUTTER DELETE FOOD
+# API DELETE FOOD
 # =====================================================
 
 @app.route(
     "/api/foods/<int:id>",
-    methods=["DELETE"]
+    methods=["DELETE", "OPTIONS"]
 )
 def api_delete_food(id):
 
-    global api_user_id
+    if request.method == "OPTIONS":
 
-    user_id = (
-        session.get("user_id")
-        or api_user_id
-    )
+        return jsonify({
+            "success": True
+        }), 200
+
+    user_id = get_current_user_id()
 
     if user_id is None:
 
@@ -1494,13 +1598,33 @@ def logout():
 
 
 # =====================================================
+# HEALTH CHECK
+# =====================================================
+
+@app.route("/api/health")
+def api_health():
+
+    return jsonify({
+        "success": True,
+        "message": "FreshTrack API is running"
+    })
+
+
+# =====================================================
 # RUN
 # =====================================================
 
 if __name__ == "__main__":
 
+    port = int(
+        os.environ.get(
+            "PORT",
+            5000
+        )
+    )
+
     app.run(
         host="0.0.0.0",
-        port=5000,
-        debug=True
+        port=port,
+        debug=False
     )
