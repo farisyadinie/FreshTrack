@@ -39,12 +39,16 @@ class FreshTrackApp extends StatelessWidget {
 
 class ApiService {
   static const String baseUrl =
-    'https://freshtrack-backend-haum.onrender.com';
+      'https://freshtrack-backend-haum.onrender.com';
 
   final BrowserClient client = BrowserClient()
     ..withCredentials = true;
 
   Map<String, dynamic> decode(http.Response response) {
+    if (response.body.trim().isEmpty) {
+      return {};
+    }
+
     try {
       final data = jsonDecode(response.body);
 
@@ -52,28 +56,43 @@ class ApiService {
         return data;
       }
 
-      return {
-        'error': 'Invalid server response',
-      };
+      return {'error': 'Invalid server response'};
     } catch (_) {
       return {
-        'error': 'Invalid server response',
+        'error': response.body.trim().isNotEmpty
+            ? response.body.trim()
+            : 'Invalid server response',
       };
     }
   }
 
-  // ---------------------------------------------------
+  String errorMessage(
+    http.Response response,
+    String fallback,
+  ) {
+    final data = decode(response);
+    final message = data['error'] ?? data['message'];
+
+    if (message != null && message.toString().trim().isNotEmpty) {
+      return message.toString();
+    }
+
+    return fallback;
+  }
+
+  // =====================================================
   // LOGIN
-  // ---------------------------------------------------
+  // =====================================================
 
   Future<Map<String, dynamic>> login(
     String email,
     String password,
   ) async {
-    final response = await client.post(
+    var response = await client.post(
       Uri.parse('$baseUrl/api/login'),
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       body: jsonEncode({
         'email': email,
@@ -81,95 +100,145 @@ class ApiService {
       }),
     );
 
-    final data = decode(response);
-
-    if (response.statusCode != 200) {
-      throw Exception(
-        data['error'] ?? 'Login failed',
-      );
+    if (response.statusCode == 200) {
+      return decode(response);
     }
 
-    return data;
+    // Some Flask deployments read request.form instead of JSON.
+    // Retry with form encoding when the API rejects the JSON request.
+    if (response.statusCode == 400 ||
+        response.statusCode == 401 ||
+        response.statusCode == 404 ||
+        response.statusCode == 405 ||
+        response.statusCode == 415) {
+      final formResponse = await client.post(
+        Uri.parse('$baseUrl/api/login'),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
+        },
+        body: {
+          'email': email,
+          'password': password,
+        },
+      );
+
+      if (formResponse.statusCode == 200) {
+        return decode(formResponse);
+      }
+
+      response = formResponse;
+    }
+
+    throw Exception(
+      errorMessage(response, 'Invalid email or password'),
+    );
   }
 
-  // ---------------------------------------------------
+  // =====================================================
   // REGISTER
-  // ---------------------------------------------------
+  // =====================================================
 
   Future<void> register({
     required String name,
     required String email,
     required String password,
   }) async {
-    final response = await client.post(
-      Uri.parse('$baseUrl/register'),
+    var response = await client.post(
+      Uri.parse('$baseUrl/api/register'),
       headers: {
-        'Content-Type':
-            'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: {
+      body: jsonEncode({
         'name': name,
         'email': email,
         'password': password,
-      },
+      }),
     );
 
-    if (response.statusCode != 200 &&
-        response.statusCode != 201 &&
-        response.statusCode != 302) {
-      final data = decode(response);
-      throw Exception(
-        data['error'] ??
-            'Unable to create your account. '
-                'Please check the email or try again.',
-      );
+    if (response.statusCode == 200 ||
+        response.statusCode == 201) {
+      return;
     }
+
+    // Render logs for this project have also shown /register.
+    // Keep that route as a production fallback.
+    if (response.statusCode == 400 ||
+        response.statusCode == 404 ||
+        response.statusCode == 405 ||
+        response.statusCode == 415) {
+      response = await client.post(
+        Uri.parse('$baseUrl/register'),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
+        },
+        body: {
+          'name': name,
+          'email': email,
+          'password': password,
+        },
+      );
+
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 302) {
+        return;
+      }
+    }
+
+    throw Exception(
+      errorMessage(response, 'Unable to create account'),
+    );
   }
 
-  // ---------------------------------------------------
+  // =====================================================
   // DASHBOARD
-  // ---------------------------------------------------
+  // =====================================================
 
   Future<Map<String, dynamic>> getDashboard() async {
     final response = await client.get(
       Uri.parse('$baseUrl/api/dashboard'),
+      headers: {'Accept': 'application/json'},
     );
 
     final data = decode(response);
 
     if (response.statusCode != 200) {
       throw Exception(
-        data['error'] ?? 'Unable to load dashboard',
+        errorMessage(response, 'Unable to load dashboard'),
       );
     }
 
     return data;
   }
 
-  // ---------------------------------------------------
-  // GET FOODS
-  // ---------------------------------------------------
+  // =====================================================
+  // FOODS
+  // =====================================================
 
   Future<List<dynamic>> getFoods() async {
     final response = await client.get(
       Uri.parse('$baseUrl/api/foods'),
+      headers: {'Accept': 'application/json'},
     );
 
     final data = decode(response);
 
     if (response.statusCode != 200) {
       throw Exception(
-        data['error'] ?? 'Unable to load foods',
+        errorMessage(response, 'Unable to load foods'),
       );
     }
 
-    return data['foods'] ?? [];
+    final foods = data['foods'];
+    return foods is List ? foods : [];
   }
 
-  // ---------------------------------------------------
+  // =====================================================
   // ADD FOOD
-  // ---------------------------------------------------
+  // =====================================================
 
   Future<void> addFood({
     required String food,
@@ -182,6 +251,7 @@ class ApiService {
       Uri.parse('$baseUrl/api/foods'),
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       body: jsonEncode({
         'food': food,
@@ -192,18 +262,17 @@ class ApiService {
       }),
     );
 
-    final data = decode(response);
-
-    if (response.statusCode != 201) {
+    if (response.statusCode != 200 &&
+        response.statusCode != 201) {
       throw Exception(
-        data['error'] ?? 'Unable to add food',
+        errorMessage(response, 'Unable to add food'),
       );
     }
   }
 
-  // ---------------------------------------------------
+  // =====================================================
   // EDIT FOOD
-  // ---------------------------------------------------
+  // =====================================================
 
   Future<void> editFood({
     required int id,
@@ -217,6 +286,7 @@ class ApiService {
       Uri.parse('$baseUrl/api/foods/$id'),
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       body: jsonEncode({
         'food': food,
@@ -227,50 +297,52 @@ class ApiService {
       }),
     );
 
-    final data = decode(response);
-
     if (response.statusCode != 200) {
       throw Exception(
-        data['error'] ?? 'Unable to edit food',
+        errorMessage(response, 'Unable to edit food'),
       );
     }
   }
 
-  // ---------------------------------------------------
-  // USED FOOD
-  // ---------------------------------------------------
+  // =====================================================
+  // USE ONE UNIT
+  // IMPORTANT: KEEP THIS METHOD NAME.
+  // Existing DashboardPage and PantryPage both call it.
+  // =====================================================
 
   Future<Map<String, dynamic>> useOneUnit(int id) async {
     final response = await client.post(
       Uri.parse('$baseUrl/api/foods/$id/use-one'),
+      headers: {'Accept': 'application/json'},
     );
 
     final data = decode(response);
 
     if (response.statusCode != 200) {
       throw Exception(
-        data['error'] ??
-            'Unable to update food quantity',
+        errorMessage(
+          response,
+          'Unable to update food quantity',
+        ),
       );
     }
 
     return data;
   }
 
-  // ---------------------------------------------------
+  // =====================================================
   // DELETE FOOD
-  // ---------------------------------------------------
+  // =====================================================
 
   Future<void> deleteFood(int id) async {
     final response = await client.delete(
       Uri.parse('$baseUrl/api/foods/$id'),
+      headers: {'Accept': 'application/json'},
     );
-
-    final data = decode(response);
 
     if (response.statusCode != 200) {
       throw Exception(
-        data['error'] ?? 'Unable to delete food',
+        errorMessage(response, 'Unable to delete food'),
       );
     }
   }
